@@ -1,7 +1,8 @@
 import { Game } from "./game.js";
 import { Input } from "./input.js";
 import { Sound } from "./audio.js";
-import { getBest, setBest } from "./storage.js";
+import { getBest, getScores, addScore, setBest } from "./storage.js";
+import { vibrate, HAPTICS } from "./haptics.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -12,10 +13,13 @@ const els = {
   best: $("best"),
   combo: $("combo"),
   comboValue: $("comboValue"),
+  effects: $("effects"),
   title: $("title"),
   desc: $("desc"),
   result: $("result"),
+  board: $("board"),
   action: $("action"),
+  secondary: $("secondary"),
   hint: $("hint"),
   eyebrow: $("eyebrow"),
   live: $("live"),
@@ -38,6 +42,18 @@ const screens = {
     desc: "在坠落的光柱之间穿行。擦身而过，分数涨得更快。",
     action: "开始游戏",
     hint: "← → / A D 移动 · 鼠标或手指拖动 · 空格开始 · P 暂停",
+    secondary: "排行榜",
+    board: false,
+    result: null,
+  },
+  scores: {
+    eyebrow: "LOCAL LEADERBOARD",
+    title: "排行榜",
+    desc: "成绩只保存在这台设备上，换浏览器就没了。",
+    action: "开始游戏",
+    hint: "按 Esc 返回主菜单",
+    secondary: "返回",
+    board: true,
     result: null,
   },
   paused: {
@@ -46,6 +62,8 @@ const screens = {
     desc: "喘口气。回来时障碍还在原地等你。",
     action: "继续",
     hint: "按 P、Esc 或空格继续",
+    secondary: null,
+    board: false,
     result: null,
   },
   dead: {
@@ -53,10 +71,14 @@ const screens = {
     title: "撞上了",
     desc: "再来一次，通常比上一局走得更远。",
     action: "再来一局",
-    hint: "空格 / 点击屏幕 立即重开",
+    hint: "空格 / 点击按钮 立即重开",
+    secondary: "排行榜",
+    board: true,
     result: "",
   },
 };
+
+let lastEntry = null;
 
 const game = new Game({
   canvas,
@@ -71,7 +93,11 @@ const game = new Game({
 const input = new Input(canvas, {
   onPrimary: () => primary(),
   onPause: () => {
-    if (game.state === "playing" || game.state === "paused") game.togglePause();
+    if (game.state === "playing" || game.state === "paused") {
+      game.togglePause();
+      return;
+    }
+    if (overlay.dataset.state === "scores") showMenu();
   },
   onMute: () => toggleMute(),
 });
@@ -80,25 +106,81 @@ game._persistBest = setBest;
 
 function handleState(state, payload) {
   overlay.dataset.state = state === "playing" ? "playing" : state;
+  if (els.effects && state !== "playing") els.effects.hidden = true;
   if (state === "playing") return;
 
   const screen = screens[state] ?? screens.menu;
+
+  if (state === "dead" && payload) {
+    const result = addScore(payload.score);
+    lastEntry = result.entry;
+    els.result.textContent = `本局 ${payload.score} · 最佳 ${payload.best}`;
+    els.result.hidden = false;
+    els.live.textContent = `游戏结束，本局 ${payload.score} 分，最佳 ${payload.best} 分`;
+  } else {
+    if (state !== "dead") lastEntry = null;
+    els.result.hidden = true;
+  }
+
   els.eyebrow.textContent = screen.eyebrow;
   els.title.textContent = screen.title;
   els.desc.textContent = screen.desc;
   els.hint.textContent = screen.hint;
   els.action.textContent = screen.action;
 
-  if (state === "dead" && payload) {
-    els.result.hidden = false;
-    els.result.textContent = `本局 ${payload.score} · 最佳 ${payload.best}`;
-    els.live.textContent = `游戏结束，本局 ${payload.score} 分，最佳 ${payload.best} 分`;
-    els.action.focus({ preventScroll: true });
+  if (screen.secondary) {
+    els.secondary.hidden = false;
+    els.secondary.textContent = screen.secondary;
   } else {
-    els.result.hidden = true;
+    els.secondary.hidden = true;
   }
 
-  if (state === "paused") els.action.focus({ preventScroll: true });
+  if (screen.board) {
+    els.board.hidden = false;
+    renderBoard(getScores(), state === "dead" ? lastEntry : null);
+  } else {
+    els.board.hidden = true;
+    els.board.innerHTML = "";
+  }
+
+  if (state === "dead" || state === "paused") {
+    els.action.focus({ preventScroll: true });
+  }
+}
+
+function renderBoard(list, highlight) {
+  if (!list.length) {
+    els.board.innerHTML = '<li class="is-empty">还没有成绩，先跑一局</li>';
+    return;
+  }
+
+  els.board.innerHTML = list
+    .map((entry, index) => {
+      const isNew = highlight && entry.at === highlight.at && entry.score === highlight.score;
+      return [
+        `<li class="${isNew ? "is-new" : ""}">`,
+        `<span class="rank">${index + 1}</span>`,
+        `<span class="score">${entry.score}</span>`,
+        `<span class="date">${formatDate(entry.at)}</span>`,
+        `</li>`,
+      ].join("");
+    })
+    .join("");
+}
+
+function formatDate(timestamp) {
+  const date = new Date(timestamp);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${month}/${day}`;
+}
+
+function showMenu() {
+  handleState("menu");
+}
+
+function showScores() {
+  handleState("scores");
 }
 
 function primary() {
@@ -109,6 +191,7 @@ function primary() {
     return;
   }
   sound.click();
+  vibrate(HAPTICS.start);
   game.best = Math.max(game.best, getBest());
   game.start();
 }
@@ -116,6 +199,12 @@ function primary() {
 els.action.addEventListener("click", (event) => {
   event.stopPropagation();
   primary();
+});
+
+els.secondary.addEventListener("click", (event) => {
+  event.stopPropagation();
+  if (overlay.dataset.state === "scores") showMenu();
+  else showScores();
 });
 
 els.sound.addEventListener("click", (event) => {

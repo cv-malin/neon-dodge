@@ -52,6 +52,22 @@ export class Sound {
     this.tone({ freq: base, to: base * 1.5, duration: 0.09, type: "sine", gain: 0.045 });
   }
 
+  pickup(kind = "shield") {
+    const map = {
+      shield: { freq: 520, to: 880, type: "triangle" },
+      slow: { freq: 720, to: 420, type: "sine" },
+      double: { freq: 620, to: 1040, type: "square" },
+    };
+    const preset = map[kind] ?? map.shield;
+    this.tone({ ...preset, duration: 0.16, gain: 0.05 });
+    this.tone({ ...preset, freq: preset.to, to: preset.to * 1.25, duration: 0.12, gain: 0.03, delay: 0.08 });
+  }
+
+  shieldBreak() {
+    this.tone({ freq: 300, to: 90, duration: 0.3, type: "sawtooth", gain: 0.06 });
+    this.tone({ freq: 180, to: 60, duration: 0.35, type: "triangle", gain: 0.04, delay: 0.03 });
+  }
+
   death() {
     this.tone({ freq: 220, to: 55, duration: 0.55, type: "sawtooth", gain: 0.07 });
     this.tone({ freq: 110, to: 40, duration: 0.7, type: "triangle", gain: 0.05, delay: 0.04 });

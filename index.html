@@ -33,13 +33,19 @@
         </div>
       </div>
 
+      <div class="effects" id="effects" aria-live="polite" hidden></div>
+
       <div class="overlay" id="overlay" data-state="menu">
         <div class="panel" role="dialog" aria-modal="true" aria-labelledby="title">
           <p class="eyebrow" id="eyebrow">CV-MALIN · 2026</p>
           <h1 class="title" id="title">霓虹躲避</h1>
           <p class="desc" id="desc">在坠落的光柱之间穿行。擦身而过，分数涨得更快。</p>
           <p class="result" id="result" hidden></p>
-          <button class="cta" id="action" type="button">开始游戏</button>
+          <ol class="board" id="board" hidden></ol>
+          <div class="actions">
+            <button class="cta" id="action" type="button">开始游戏</button>
+            <button class="cta cta--ghost" id="secondary" type="button" hidden>排行榜</button>
+          </div>
           <p class="hint" id="hint">← → / A D 移动 · 鼠标或手指拖动 · 空格开始 · P 暂停</p>
         </div>
       </div>

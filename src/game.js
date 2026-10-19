@@ -8,6 +8,17 @@ import {
   clamp,
 } from "./logic.js";
 import { Obstacle, burst } from "./entities.js";
+import {
+  POWERUP_META,
+  applyPowerup,
+  stepEffects,
+  scoreMultiplier,
+  timeScale,
+  nextPickupDelay,
+  pickPowerupKind,
+  createEffects,
+} from "./powerups.js";
+import { vibrate, HAPTICS } from "./haptics.js";
 
 const COLORS = {
   single: "#38bdf8",
@@ -42,6 +53,10 @@ export class Game {
     this.particles = [];
     this.trail = [];
     this.dust = [];
+    this.pickups = [];
+    this.effects = createEffects();
+    this.pickupTimer = 8;
+    this._effectsMarkup = "";
 
     this.player = { x: 0, y: 0, r: 12, targetX: 0 };
 
@@ -112,8 +127,16 @@ export class Game {
 
   _reset() {
     this.obstacles = [];
+    this.pickups = [];
     this.particles = [];
     this.trail = [];
+    this.effects = createEffects();
+    this.pickupTimer = 8;
+    this._effectsMarkup = "";
+    if (this.hud.effects) {
+      this.hud.effects.innerHTML = "";
+      this.hud.effects.hidden = true;
+    }
     this.score = 0;
     this.combo = 0;
     this.comboTimer = 0;
@@ -169,6 +192,7 @@ export class Game {
       gravity: 120,
     });
     this.sound?.death();
+    vibrate(HAPTICS.hit);
 
     if (this.score > this.best) {
       this.best = Math.floor(this.score);
@@ -191,10 +215,12 @@ export class Game {
     if (this.state !== "playing") return;
 
     const diff = difficultyAt(this.distance);
-    this.speed = diff.speed * this.h;
+    stepEffects(this.effects, dt);
+    const scale = timeScale(this.effects);
+    this.speed = diff.speed * this.h * scale;
     this.distance += (this.speed * dt) / this.h;
     this.scroll += this.speed * dt;
-    this.score += dt * 8 * (1 + this.combo * 0.3);
+    this.score += dt * 8 * (1 + this.combo * 0.3) * scoreMultiplier(this.effects);
 
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0) {
@@ -202,8 +228,15 @@ export class Game {
       this.spawnTimer = diff.interval * (0.85 + this._rng() * 0.3);
     }
 
+    this.pickupTimer -= dt;
+    if (this.pickupTimer <= 0) {
+      this._spawnPickup();
+      this.pickupTimer = nextPickupDelay(() => this._rng());
+    }
+
     this._movePlayer(dt);
     this._updateObstacles(dt);
+    this._updatePickups(dt);
     this._detect(dt);
 
     if (this.comboTimer > 0) {
@@ -270,7 +303,7 @@ export class Game {
 
   _updateObstacles(dt) {
     for (const obstacle of this.obstacles) obstacle.update(dt, this.time);
-    this.obstacles = this.obstacles.filter((o) => !o.isOffscreen(this.h));
+    this.obstacles = this.obstacles.filter((o) => !o.dead && !o.isOffscreen(this.h));
   }
 
   _detect() {
@@ -280,6 +313,28 @@ export class Game {
       const rect = obstacle.rect;
 
       if (circleRectCollide(x, y, r, rect)) {
+        if (this.effects.invincible > 0) continue;
+
+        if (this.effects.shield) {
+          this.effects.shield = false;
+          this.effects.invincible = 1.2;
+          obstacle.dead = true;
+          this.shake = Math.max(this.shake, 14);
+          this.sound?.shieldBreak();
+          vibrate(HAPTICS.shieldBreak);
+          burst(this.particles, {
+            x: rect.x + rect.w / 2,
+            y: rect.y + rect.h / 2,
+            count: 24,
+            speed: 300,
+            color: "#7ee787",
+            life: 0.7,
+            size: 2.6,
+            gravity: 60,
+          });
+          continue;
+        }
+
         this.die("hit");
         return;
       }
@@ -301,6 +356,7 @@ export class Game {
     this.score += bonus;
     this.shake = Math.max(this.shake, 4);
     this.sound?.nearMiss(this.combo);
+    vibrate(HAPTICS.nearMiss);
 
     this.hud.combo.hidden = false;
     this.hud.comboValue.textContent = String(this.combo + 1);
@@ -313,6 +369,52 @@ export class Game {
       color: "#7ee787",
       life: 0.45,
       size: 1.8,
+      gravity: 0,
+    });
+  }
+
+  _spawnPickup() {
+    const kind = pickPowerupKind(() => this._rng());
+    const r = Math.max(11, Math.min(this.w, this.h) * 0.022);
+    const x = clamp(this.w * (0.14 + this._rng() * 0.72), r * 2, this.w - r * 2);
+    this.pickups.push({ x, y: -r * 2, r, kind, spin: this._rng() * Math.PI * 2 });
+  }
+
+  _updatePickups(dt) {
+    const { x, y, r } = this.player;
+
+    for (const pickup of this.pickups) {
+      pickup.y += this.speed * 0.6 * dt;
+      pickup.spin += dt * 1.7;
+    }
+
+    this.pickups = this.pickups.filter((pickup) => {
+      if (pickup.y > this.h + pickup.r * 2) return false;
+
+      const dx = pickup.x - x;
+      const dy = pickup.y - y;
+      const reach = pickup.r + r;
+      if (dx * dx + dy * dy <= reach * reach) {
+        this._collect(pickup);
+        return false;
+      }
+      return true;
+    });
+  }
+
+  _collect(pickup) {
+    applyPowerup(this.effects, pickup.kind);
+    this.sound?.pickup(pickup.kind);
+    vibrate(HAPTICS.pickup);
+    this.shake = Math.max(this.shake, 3);
+    burst(this.particles, {
+      x: pickup.x,
+      y: pickup.y,
+      count: 16,
+      speed: 190,
+      color: POWERUP_META[pickup.kind].color,
+      life: 0.6,
+      size: 2.2,
       gravity: 0,
     });
   }
@@ -338,6 +440,24 @@ export class Game {
     if (this.hud.score.textContent !== score) this.hud.score.textContent = score;
     const best = Math.max(this.best, Math.floor(this.score)).toString();
     if (this.hud.best.textContent !== best) this.hud.best.textContent = best;
+
+    const chips = [];
+    if (this.effects.shield) chips.push('<span class="chip chip--shield">护盾</span>');
+    if (this.effects.slow > 0) {
+      chips.push(`<span class="chip chip--slow">减速 ${this.effects.slow.toFixed(1)}s</span>`);
+    }
+    if (this.effects.double > 0) {
+      chips.push(`<span class="chip chip--double">双倍 ${this.effects.double.toFixed(1)}s</span>`);
+    }
+
+    const markup = chips.join("");
+    if (markup !== this._effectsMarkup) {
+      this._effectsMarkup = markup;
+      if (this.hud.effects) {
+        this.hud.effects.innerHTML = markup;
+        this.hud.effects.hidden = markup === "";
+      }
+    }
   }
 
   /* ---------- 渲染 ---------- */
@@ -357,6 +477,7 @@ export class Game {
     ctx.save();
     ctx.translate(shakeX, shakeY);
     for (const obstacle of this.obstacles) this._drawObstacle(obstacle);
+    this._drawPickups();
     if (this.state !== "dead") this._drawPlayer();
     this._drawParticles();
     ctx.restore();
@@ -389,6 +510,61 @@ export class Game {
     }
     ctx.stroke();
     ctx.restore();
+  }
+
+  _drawPickups() {
+    const { ctx } = this;
+
+    for (const pickup of this.pickups) {
+      const meta = POWERUP_META[pickup.kind];
+      const { r } = pickup;
+
+      ctx.save();
+      ctx.translate(pickup.x, pickup.y);
+      ctx.rotate(Math.sin(pickup.spin) * 0.18);
+      ctx.shadowColor = meta.color;
+      ctx.shadowBlur = 24;
+
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fillStyle = hexToRgba(meta.color, 0.18);
+      ctx.fill();
+      ctx.strokeStyle = meta.color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = meta.color;
+      ctx.strokeStyle = meta.color;
+      ctx.lineWidth = 2;
+
+      if (pickup.kind === "shield") {
+        ctx.beginPath();
+        for (let i = 0; i < 6; i += 1) {
+          const angle = (Math.PI / 3) * i - Math.PI / 2;
+          const px = Math.cos(angle) * r * 0.55;
+          const py = Math.sin(angle) * r * 0.55;
+          i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+      } else if (pickup.kind === "slow") {
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.42, -r * 0.45);
+        ctx.lineTo(r * 0.42, -r * 0.45);
+        ctx.lineTo(-r * 0.42, r * 0.45);
+        ctx.lineTo(r * 0.42, r * 0.45);
+        ctx.closePath();
+        ctx.stroke();
+      } else {
+        ctx.font = `700 ${Math.round(r * 0.95)}px ui-monospace, Consolas, monospace`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("×2", 0, 1);
+      }
+
+      ctx.restore();
+    }
   }
 
   _drawDust() {
@@ -434,6 +610,12 @@ export class Game {
     const { ctx } = this;
     const { x, y, r } = this.player;
 
+    ctx.save();
+    // 护盾破碎后的短暂无敌：闪烁提示
+    if (this.effects.invincible > 0) {
+      ctx.globalAlpha = 0.35 + 0.65 * Math.abs(Math.sin(this.time * 16));
+    }
+
     for (let i = 0; i < this.trail.length; i += 1) {
       const point = this.trail[i];
       const t = i / this.trail.length;
@@ -462,6 +644,7 @@ export class Game {
     ctx.beginPath();
     ctx.arc(x, y, r * 0.55, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.restore();
     ctx.restore();
   }
 
