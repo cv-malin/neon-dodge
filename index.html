@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>NEON DODGE · 霓虹躲避</title>
+    <meta name="description" content="一个零依赖的霓虹风躲避小游戏：键盘、鼠标、触屏都能玩，擦身而过还能加分。" />
+    <meta name="theme-color" content="#05070d" />
+    <meta property="og:title" content="NEON DODGE · 霓虹躲避" />
+    <meta property="og:description" content="在坠落的光柱之间穿行。零依赖、可离线、手机可玩。" />
+    <link rel="stylesheet" href="./style.css" />
+    <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <main class="app" id="app">
+      <canvas
+        id="game"
+        class="game"
+        tabindex="0"
+        role="img"
+        aria-label="霓虹躲避游戏画面，底部是玩家，屏幕上落下光柱障碍"
+      ></canvas>
+
+      <div class="hud" aria-hidden="true">
+        <div class="hud__item">
+          <span class="hud__value" id="score">0</span>
+          <span class="hud__label">SCORE</span>
+        </div>
+        <div class="hud__combo" id="combo" hidden>×<span id="comboValue">2</span></div>
+        <div class="hud__item hud__item--right">
+          <span class="hud__value" id="best">0</span>
+          <span class="hud__label">BEST</span>
+        </div>
+      </div>
+
+      <div class="overlay" id="overlay" data-state="menu">
+        <div class="panel" role="dialog" aria-modal="true" aria-labelledby="title">
+          <p class="eyebrow" id="eyebrow">CV-MALIN · 2026</p>
+          <h1 class="title" id="title">霓虹躲避</h1>
+          <p class="desc" id="desc">在坠落的光柱之间穿行。擦身而过，分数涨得更快。</p>
+          <p class="result" id="result" hidden></p>
+          <button class="cta" id="action" type="button">开始游戏</button>
+          <p class="hint" id="hint">← → / A D 移动 · 鼠标或手指拖动 · 空格开始 · P 暂停</p>
+        </div>
+      </div>
+
+      <button class="sound" id="sound" type="button" aria-label="切换声音" aria-pressed="true">♪</button>
+
+      <p class="sr-only" id="live" aria-live="polite"></p>
+    </main>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
