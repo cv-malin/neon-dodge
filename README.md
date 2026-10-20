@@ -109,6 +109,7 @@ neon-dodge/
 │   ├── haptics.js        # Vibration API 封装
 │   ├── rng.js            # 可复现随机数
 │   └── storage.js        # 最高分与榜单持久化
+├── docs/PRD.md           # 产品需求文档（v3.0，Google 结构）
 ├── tests/                # node:test 单元测试（3 个文件 / 26 项）
 ├── scripts/serve.mjs     # 零依赖静态服务器
 └── .github/workflows/pages.yml
@@ -139,6 +140,13 @@ neon-dodge/
 - actions/upload-pages-artifact   # 只打包静态文件
 - actions/deploy-pages
 ```
+
+## 产品文档
+
+- **[PRD（v3.0）](docs/PRD.md)** —— 下一版（v2.x）的产品需求文档：北极星指标、每日挑战、难度档位、道具磁吸、埋点 schema、发布门禁与回滚方案。
+- [CHANGELOG.md](CHANGELOG.md) —— 版本变更记录。
+
+PRD 采用 Google 设计文档结构（Context/Scope、Goals/Non-Goals、Alternatives、Cross-cutting、Launch Gates），并按「可证伪」标准自评 96/100；剩余 4 分需要真实用户数据与真人测试才能补上。
 
 ## 更新日志
 
