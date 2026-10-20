@@ -227,7 +227,7 @@ neon-dodge/
 - **[PRD（v3.0）](docs/PRD.md)** —— 北极星指标、每日挑战、难度档位、道具磁吸、埋点 schema、发布门禁与回滚方案。
 - [CHANGELOG.md](CHANGELOG.md) —— 版本变更记录。
 
-PRD 采用 Google 设计文档结构（Context/Scope、Goals/Non-Goals、Alternatives、Cross-cutting、Launch Gates）。v2.1 先落地 P0（F1–F6）；P1 的成就与分享卡中，分享卡已提前实现，成就留到下一版。
+PRD 采用 Google 设计文档结构（Context/Scope、Goals/Non-Goals、Alternatives、Cross-cutting、Launch Gates）。v2.1 已落地 P0（F1–F6）；P1 中分享卡提前实现，8 条成就留到下一版。
 
 ## 路线图
 

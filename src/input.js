@@ -42,6 +42,15 @@ export class Input {
 
   _onKeyDown(event) {
     const key = event.key.toLowerCase();
+    // 焦点在按钮 / 链接上时，把 Space、Enter 留给浏览器原生激活，
+    // 否则会先触发一次全局「开始」，再触发按钮自身的动作。
+    const target = event.target;
+    const onControl =
+      target instanceof Element &&
+      typeof target.closest === "function" &&
+      Boolean(target.closest("button, a, input, select, textarea, [role='button']"));
+
+    if (onControl && (key === " " || key === "enter")) return;
 
     if (key === "arrowleft" || key === "a") {
       this.left = true;

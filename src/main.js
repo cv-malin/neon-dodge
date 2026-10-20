@@ -206,7 +206,7 @@ function prepareDead(payload) {
     screens.dead.action = "再来一局";
   }
 
-  els.result.append(line, sub);
+  els.result.append(line, document.createTextNode(" "), sub);
   els.result.hidden = false;
   els.live.textContent = `游戏结束，本局 ${score} 分${rank ? `，第 ${rank} 名` : ""}`;
 
