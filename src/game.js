@@ -18,6 +18,8 @@ import {
   pickPowerupKind,
   createEffects,
 } from "./powerups.js";
+import { applyTier } from "./difficulty.js";
+import { magnetStep } from "./magnet.js";
 import { vibrate, HAPTICS } from "./haptics.js";
 
 const COLORS = {
@@ -30,17 +32,30 @@ const NEAR_MISS_FACTOR = 2.4; // 净距 <= 2.4r 判定为擦身
 const FIXED_TRAIL = 16;
 
 export class Game {
-  constructor({ canvas, hud, input, sound, onState, seed = 1, auto = false }) {
+  constructor({ canvas, hud, input, sound, onState, onPickup, seed = 1, auto = false, tier = "standard", mode = "free" }) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d", { alpha: false });
     this.hud = hud;
     this.input = input;
     this.sound = sound;
     this.onState = onState;
+    this.onPickup = onPickup;
     this.auto = auto;
+    this.reduceMotion = Boolean(
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    );
 
     this.seed = seed >>> 0;
     this.state = "menu";
+    this.tier = tier;
+    this.mode = mode;
+    this.dailyDateKey = null;
+    this.runTime = 0;
+    this.startedAt = 0;
+    this.run = { powerups: 0, nearMisses: 0, maxCombo: 0 };
+    this.lastResult = null;
 
     this.dpr = 1;
     this.w = 1;
@@ -55,7 +70,7 @@ export class Game {
     this.dust = [];
     this.pickups = [];
     this.effects = createEffects();
-    this.pickupTimer = 8;
+    this.pickupTimer = 5;
     this._effectsMarkup = "";
 
     this.player = { x: 0, y: 0, r: 12, targetX: 0 };
@@ -117,9 +132,24 @@ export class Game {
     this._vignette = vg;
   }
 
-  start() {
-    this.seed = (this.seed + 7919) >>> 0;
+  start(options = {}) {
+    const {
+      tier = this.tier,
+      mode = this.mode,
+      seed = this.seed,
+      dailyDateKey = this.dailyDateKey,
+      best = this.best,
+    } = options;
+
+    this.tier = tier;
+    this.mode = mode;
+    this.dailyDateKey = dailyDateKey;
+    this.seed = seed >>> 0;
+    this._seedState = this.seed;
+    this.best = best;
+
     this._reset();
+    this.startedAt = performance.now();
     this.state = "playing";
     this.sound?.start();
     this.onState?.(this.state);
@@ -131,7 +161,10 @@ export class Game {
     this.particles = [];
     this.trail = [];
     this.effects = createEffects();
-    this.pickupTimer = 8;
+    this.pickupTimer = 5;
+    this.runTime = 0;
+    this.run = { powerups: 0, nearMisses: 0, maxCombo: 0 };
+    this.lastResult = null;
     this._effectsMarkup = "";
     if (this.hud.effects) {
       this.hud.effects.innerHTML = "";
@@ -170,7 +203,7 @@ export class Game {
   die(cause = "hit") {
     if (this.state !== "playing") return;
     this.state = "dead";
-    this.shake = 24;
+    this.shake = this.reduceMotion ? 0 : 24;
     burst(this.particles, {
       x: this.player.x,
       y: this.player.y,
@@ -196,10 +229,23 @@ export class Game {
 
     if (this.score > this.best) {
       this.best = Math.floor(this.score);
-      this._persistBest?.(this.best);
     }
+    const durationMs = Math.max(0, Math.round(performance.now() - this.startedAt));
+    const result = {
+      score: Math.floor(this.score),
+      best: this.best,
+      cause,
+      tier: this.tier,
+      mode: this.mode,
+      dateKey: this.dailyDateKey,
+      durationMs,
+      powerups: this.run.powerups,
+      nearMisses: this.run.nearMisses,
+      maxCombo: this.run.maxCombo,
+    };
+    this.lastResult = result;
     this._syncHud();
-    this.onState?.(this.state, { score: Math.floor(this.score), best: this.best, cause });
+    this.onState?.(this.state, result);
   }
 
   /* ---------- 更新 ---------- */
@@ -214,7 +260,8 @@ export class Game {
 
     if (this.state !== "playing") return;
 
-    const diff = difficultyAt(this.distance);
+    this.runTime += dt;
+    const diff = applyTier(difficultyAt(this.distance), this.tier);
     stepEffects(this.effects, dt);
     const scale = timeScale(this.effects);
     this.speed = diff.speed * this.h * scale;
@@ -350,11 +397,13 @@ export class Game {
   }
 
   _rewardNearMiss() {
-    this.combo = Math.min(this.combo + 1, 9);
+    this.combo = Math.min(this.combo + 1, 8);
     this.comboTimer = 2.6;
+    this.run.nearMisses += 1;
+    this.run.maxCombo = Math.max(this.run.maxCombo, this.combo + 1);
     const bonus = 18 * (1 + this.combo * 0.6);
     this.score += bonus;
-    this.shake = Math.max(this.shake, 4);
+    this.shake = this.reduceMotion ? 0 : Math.max(this.shake, 4);
     this.sound?.nearMiss(this.combo);
     vibrate(HAPTICS.nearMiss);
 
@@ -377,15 +426,31 @@ export class Game {
     const kind = pickPowerupKind(() => this._rng());
     const r = Math.max(11, Math.min(this.w, this.h) * 0.022);
     const x = clamp(this.w * (0.14 + this._rng() * 0.72), r * 2, this.w - r * 2);
-    this.pickups.push({ x, y: -r * 2, r, kind, spin: this._rng() * Math.PI * 2 });
+    this.pickups.push({ x, y: -r * 2, r, kind, spin: this._rng() * Math.PI * 2, magnetized: false });
   }
 
   _updatePickups(dt) {
     const { x, y, r } = this.player;
+    const fallSpeed = this.speed * 0.6;
 
     for (const pickup of this.pickups) {
-      pickup.y += this.speed * 0.6 * dt;
+      pickup.y += fallSpeed * dt;
       pickup.spin += dt * 1.7;
+
+      const pulled = magnetStep(
+        pickup,
+        this.player,
+        this.runTime,
+        this.w,
+        this.tier,
+        dt,
+        fallSpeed,
+      );
+      pickup.magnetized = Boolean(pulled);
+      if (pulled) {
+        pickup.x = pulled.x;
+        pickup.y = pulled.y;
+      }
     }
 
     this.pickups = this.pickups.filter((pickup) => {
@@ -403,6 +468,8 @@ export class Game {
   }
 
   _collect(pickup) {
+    this.run.powerups += 1;
+    this.onPickup?.(pickup.kind, this.runTime);
     applyPowerup(this.effects, pickup.kind);
     this.sound?.pickup(pickup.kind);
     vibrate(HAPTICS.pickup);
@@ -430,7 +497,8 @@ export class Game {
     }
   }
 
-  _updateParticles(dt) {    for (const p of this.particles) p.update(dt);
+  _updateParticles(dt) {
+    for (const p of this.particles) p.update(dt);
     this.particles = this.particles.filter((p) => p.life > 0);
     if (this.particles.length > 240) this.particles.splice(0, this.particles.length - 240);
   }
@@ -561,6 +629,16 @@ export class Game {
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText("×2", 0, 1);
+      }
+
+      if (pickup.magnetized) {
+        ctx.beginPath();
+        ctx.setLineDash([3, 4]);
+        ctx.strokeStyle = hexToRgba(meta.color, 0.52);
+        ctx.lineWidth = 1;
+        ctx.arc(0, 0, r * 1.55, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
       }
 
       ctx.restore();

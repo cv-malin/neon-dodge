@@ -3,11 +3,16 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>NEON DODGE · 霓虹躲避</title>
-    <meta name="description" content="一个零依赖的霓虹风躲避小游戏：键盘、鼠标、触屏都能玩，擦身而过还能加分。" />
+    <title>NEON DODGE · 霓虹躲避 · 每日挑战</title>
+    <meta
+      name="description"
+      content="零依赖霓虹风躲避小游戏：三档难度、每日挑战、道具磁吸与本地统计。擦身而过，分数涨得更快。"
+    />
     <meta name="theme-color" content="#05070d" />
     <meta property="og:title" content="NEON DODGE · 霓虹躲避" />
-    <meta property="og:description" content="在坠落的光柱之间穿行。零依赖、可离线、手机可玩。" />
+    <meta property="og:description" content="三档难度、每日挑战、道具磁吸。零依赖，手机可玩。" />
+    <meta property="og:url" content="https://cv-malin.github.io/neon-dodge/" />
+    <meta name="author" content="cv-malin" />
     <link rel="stylesheet" href="./style.css" />
     <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
   </head>
@@ -26,6 +31,7 @@
           <span class="hud__value" id="score">0</span>
           <span class="hud__label">SCORE</span>
         </div>
+        <div class="hud__mode" id="mode">标准 · 1.0×</div>
         <div class="hud__combo" id="combo" hidden>×<span id="comboValue">2</span></div>
         <div class="hud__item hud__item--right">
           <span class="hud__value" id="best">0</span>
@@ -35,18 +41,86 @@
 
       <div class="effects" id="effects" aria-live="polite" hidden></div>
 
+      <div class="tutorial" id="tutorial" hidden aria-hidden="true">
+        <span class="tutorial__keys">← →</span>
+        <span class="tutorial__label">移动</span>
+      </div>
+
       <div class="overlay" id="overlay" data-state="menu">
         <div class="panel" role="dialog" aria-modal="true" aria-labelledby="title">
-          <p class="eyebrow" id="eyebrow">CV-MALIN · 2026</p>
+          <p class="eyebrow" id="eyebrow">CV-MALIN · NEON DODGE</p>
           <h1 class="title" id="title">霓虹躲避</h1>
           <p class="desc" id="desc">在坠落的光柱之间穿行。擦身而过，分数涨得更快。</p>
+
+          <div class="tier-wrap" id="tierWrap">
+            <span class="field-label" id="tierLabel">难度档位 · 榜单独立</span>
+            <div class="tier" id="tierPicker" role="radiogroup" aria-labelledby="tierLabel">
+              <button class="tier__btn" type="button" data-tier="casual" role="radio" aria-checked="false">
+                <span class="tier__name">休闲</span>
+                <span class="tier__factor">0.8×</span>
+              </button>
+              <button class="tier__btn" type="button" data-tier="standard" role="radio" aria-checked="true">
+                <span class="tier__name">标准</span>
+                <span class="tier__factor">1.0×</span>
+              </button>
+              <button class="tier__btn" type="button" data-tier="hardcore" role="radio" aria-checked="false">
+                <span class="tier__name">硬核</span>
+                <span class="tier__factor">1.25×</span>
+              </button>
+            </div>
+          </div>
+
+          <button class="daily-card" id="daily" type="button">
+            <span class="daily-card__tag">DAILY</span>
+            <span class="daily-card__body">
+              <strong class="daily-card__title" id="dailyTitle">每日挑战</strong>
+              <small class="daily-card__meta" id="dailyMeta">UTC+8 · 每天 1 次</small>
+            </span>
+            <span class="daily-card__status" id="dailyStatus">挑战</span>
+          </button>
+
           <p class="result" id="result" hidden></p>
           <ol class="board" id="board" hidden></ol>
+
+          <div class="stats-panel" id="statsPanel" hidden>
+            <div class="stats-grid">
+              <div class="stat"><span class="stat__label">总局数</span><strong id="statGames">0</strong></div>
+              <div class="stat"><span class="stat__label">最高分</span><strong id="statBest">0</strong></div>
+              <div class="stat"><span class="stat__label">平均存活</span><strong id="statAvg">0s</strong></div>
+              <div class="stat"><span class="stat__label">道具拾取</span><strong id="statPickup">0</strong></div>
+              <div class="stat"><span class="stat__label">挑战完成</span><strong id="statDaily">—</strong></div>
+              <div class="stat"><span class="stat__label">连胜</span><strong id="statStreak">0 天</strong></div>
+            </div>
+            <p class="stats-line" id="statTiers"></p>
+            <p class="stats-line" id="statBaseline"></p>
+            <p class="stats-line" id="statFirst" hidden></p>
+            <button class="cta cta--ghost cta--small" id="export" type="button">导出 JSON</button>
+          </div>
+
+          <nav class="board-tabs" id="boardTabs" aria-label="榜单分类" hidden>
+            <button type="button" data-board="casual">休闲</button>
+            <button type="button" data-board="standard">标准</button>
+            <button type="button" data-board="hardcore">硬核</button>
+            <button type="button" data-board="daily">每日</button>
+          </nav>
+
           <div class="actions">
             <button class="cta" id="action" type="button">开始游戏</button>
             <button class="cta cta--ghost" id="secondary" type="button" hidden>排行榜</button>
+            <button class="cta cta--ghost" id="share" type="button" hidden>保存成绩卡</button>
+            <button class="cta cta--ghost" id="statsButton" type="button">统计</button>
+            <button class="cta cta--ghost" id="menuButton" type="button" hidden>主菜单</button>
           </div>
+
           <p class="hint" id="hint">← → / A D 移动 · 鼠标或手指拖动 · 空格开始 · P 暂停</p>
+          <p class="notice" id="notice" hidden></p>
+          <p class="credit">
+            <a href="https://github.com/cv-malin/neon-dodge" target="_blank" rel="noopener">v2.1.0 · 源码</a>
+            <span aria-hidden="true">·</span>
+            <span>由 <a href="https://github.com/cv-malin" target="_blank" rel="noopener">cv-malin</a> 打造</span>
+            <span aria-hidden="true">·</span>
+            <span>零网络请求</span>
+          </p>
         </div>
       </div>
 

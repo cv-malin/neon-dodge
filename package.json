@@ -1,10 +1,10 @@
 {
   "name": "neon-dodge",
-  "version": "1.1.0",
+  "version": "2.1.0",
   "private": true,
   "type": "module",
-  "description": "一个零依赖的霓虹风躲避小游戏：键盘、鼠标、触屏都能玩，含道具与本地排行榜",
-  "keywords": ["game", "canvas", "javascript", "arcade", "zero-dependency"],
+  "description": "零依赖霓虹风躲避小游戏：三档难度、每日挑战、道具磁吸、本地统计与分档榜单",
+  "keywords": ["game", "canvas", "javascript", "arcade", "zero-dependency", "daily-challenge"],
   "homepage": "https://cv-malin.github.io/neon-dodge/",
   "repository": {
     "type": "git",

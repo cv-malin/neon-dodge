@@ -53,9 +53,9 @@ export function timeScale(effects) {
   return effects.slow > 0 ? SLOW_FACTOR : 1;
 }
 
-/** 下一个道具出现的间隔（秒）。前期间隔长一点，避免开局就刷。 */
+/** 下一个道具出现的间隔（秒）。7~12 秒，配合磁吸把单局拾取拉到 1.5 以上。 */
 export function nextPickupDelay(rng) {
-  return 8 + rng() * 6;
+  return 7 + rng() * 5;
 }
 
 export function pickPowerupKind(rng) {

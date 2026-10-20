@@ -75,11 +75,11 @@ test("道具种类按权重抽取", () => {
 });
 
 test("道具间隔在合理区间", () => {
-  assert.equal(nextPickupDelay(() => 0), 8);
-  assert.equal(nextPickupDelay(() => 1), 14);
+  assert.equal(nextPickupDelay(() => 0), 7);
+  assert.equal(nextPickupDelay(() => 1), 12);
   for (let i = 0; i < 50; i += 1) {
     const delay = nextPickupDelay(() => i / 50);
-    assert.ok(delay >= 8 && delay <= 14);
+    assert.ok(delay >= 7 && delay <= 12);
   }
 });
 
