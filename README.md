@@ -19,6 +19,14 @@ v2.1 加了三条让人想再打开的理由：**三档难度**、**每日挑战
 
 手机上直接打开也能玩，建议横屏。游戏只在本地读写数据，**零网络请求**；首页的 GitHub 链接只有点击时才会离开游戏。
 
+## 下载
+
+- **单文件版 HTML**：[neon-dodge-v2.1.0-standalone.html](https://github.com/cv-malin/neon-dodge/releases/download/v2.1.0/neon-dodge-v2.1.0-standalone.html)  
+  双击即可玩，不需要 Node、不需要服务器；适合发给朋友或离线保存。
+- **完整包 ZIP**：[neon-dodge-v2.1.0.zip](https://github.com/cv-malin/neon-dodge/releases/download/v2.1.0/neon-dodge-v2.1.0.zip)  
+  含源码、测试、README、本地服务器和单文件版；解压后看 `START-HERE.txt`。
+- **校验和**：[SHA256SUMS.txt](https://github.com/cv-malin/neon-dodge/releases/download/v2.1.0/SHA256SUMS.txt)
+
 - 作者：[cv-malin](https://github.com/cv-malin)
 - 仓库：[cv-malin/neon-dodge](https://github.com/cv-malin/neon-dodge)
 - 许可：MIT
